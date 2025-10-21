@@ -1,10 +1,33 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { INestApplication } from '@nestjs/common';
-import type { Express } from 'express';
+import { ValidationPipe } from '@nestjs/common';
 
-let cachedApp: INestApplication | null = null;
-let cachedHandler: Express | null = null;
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // CORS sozlamalari
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  });
+
+  // Validation pipe
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }));
+
+  // Global prefix
+  app.setGlobalPrefix('api');
+
+  await app.listen(process.env.PORT || 3000);
+}
+
+// Vercel uchun handler
+let cachedApp: any = null;
 
 export default async function handler(req: any, res: any) {
   if (!cachedApp) {
@@ -17,12 +40,18 @@ export default async function handler(req: any, res: any) {
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     });
 
-    await app.init();
-    cachedApp = app;
+    app.setGlobalPrefix('api');
 
-    // Tipni bu tarzda aniq qilib beramiz
-    cachedHandler = app.getHttpAdapter().getInstance() as Express;
+    await app.init();
+    cachedApp = app.getHttpAdapter().getInstance();
   }
 
-  return (cachedHandler as any)(req, res);
+  return cachedApp(req, res);
+}
+
+// Local development uchun
+if (process.env.NODE_ENV !== 'production') {
+  bootstrap().then(() => {
+    console.log('🚀 Server is running on http://localhost:3000');
+  });
 }
