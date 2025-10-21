@@ -19,5 +19,6 @@ export default async function handler(req: any, res: any) {
     cachedServer = app.getHttpAdapter().getInstance();
   }
 
-  cachedServer(req, res);
+  // 🔧 NestJS server instance orqali so‘rovni Vercel’ga yo‘naltiramiz
+  (cachedServer as any).emit('request', req, res);
 }
