@@ -1,24 +1,28 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Server } from 'http';
+import { INestApplication } from '@nestjs/common';
+import type { Express } from 'express';
 
-let cachedServer: Server;
+let cachedApp: INestApplication | null = null;
+let cachedHandler: Express | null = null;
 
 export default async function handler(req: any, res: any) {
-  if (!cachedServer) {
+  if (!cachedApp) {
     const app = await NestFactory.create(AppModule);
 
     app.enableCors({
-      origin: ['http://localhost:5173', 'https://your-frontend-domain.vercel.app'],
+      origin: '*',
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     });
 
     await app.init();
-    cachedServer = app.getHttpAdapter().getInstance();
+    cachedApp = app;
+
+    // Tipni bu tarzda aniq qilib beramiz
+    cachedHandler = app.getHttpAdapter().getInstance() as Express;
   }
 
-  // 🔧 NestJS server instance orqali so‘rovni Vercel’ga yo‘naltiramiz
-  (cachedServer as any).emit('request', req, res);
+  return (cachedHandler as any)(req, res);
 }
